@@ -8,20 +8,16 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
-import lombok.val;
-
 import com.example.GenericProducer.enums.KafkaSerializerTypes;
 
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
-import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializerConfig;
 
 @Component
 public class KafkaProducerClient {
 
     public static final String FALSE = "false";
-    private static final String CLIENT_ID = "kafka-mgmt-service-java";
+    private static final String CLIENT_ID = "car-producer";
     private static final String SECURITY_PROTOCOL = "SASL_PLAINTEXT";
     private static final String SASL_MECHANISM = "SCRAM-SHA-512";
     private static final String SASL_JAAS_CONFIG = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"%s\" password=\"%s\";";
@@ -43,6 +39,8 @@ public class KafkaProducerClient {
         props.setProperty(SaslConfigs.SASL_MECHANISM, SASL_MECHANISM);
         props.setProperty(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_JAAS_CONFIG, username, password));
         props.setProperty(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+        props.setProperty("basic.auth.credentials.source", "USER_INFO");
+        props.setProperty("basic.auth.user.info", username + ":" + password);
         props.setProperty(AbstractKafkaSchemaSerDeConfig.AUTO_REGISTER_SCHEMAS, FALSE);
         props.setProperty(AbstractKafkaSchemaSerDeConfig.LATEST_COMPATIBILITY_STRICT, "true");
         props.setProperty(AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY, 

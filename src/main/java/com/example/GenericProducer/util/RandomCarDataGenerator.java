@@ -38,7 +38,6 @@ public class RandomCarDataGenerator {
         car.setSpeed(generateRandomSpeed());
         car.setLatitude(generateRandomLatitude());
         car.setLongitude(generateRandomLongitude());
-        //car.setExtraAttribute("This is an extra attribute");
         return car;
     }
 
