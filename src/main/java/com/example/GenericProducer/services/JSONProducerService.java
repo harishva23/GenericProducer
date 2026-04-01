@@ -106,6 +106,8 @@ public class JSONProducerService {
     private KafkaJsonSchemaSerializer<JsonNode> getJsonNodeKafkaJsonSchemaSerializer() {
         Map<String, Object> jsonSerializerProps = new HashMap<>();
         jsonSerializerProps.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+        jsonSerializerProps.put("basic.auth.credentials.source", "USER_INFO");
+        jsonSerializerProps.put("basic.auth.user.info", username + ":" + password);
         jsonSerializerProps.put(AbstractKafkaSchemaSerDeConfig.AUTO_REGISTER_SCHEMAS, false);
         jsonSerializerProps.put(KafkaJsonSchemaSerializerConfig.FAIL_INVALID_SCHEMA, true);
         jsonSerializerProps.put(KafkaJsonSchemaSerializerConfig.FAIL_UNKNOWN_PROPERTIES, true);
