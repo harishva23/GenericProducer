@@ -1,7 +1,7 @@
 package com.example.GenericProducer.util;
 
 import com.example.GenericProducer.pojo.Car;
-
+import com.example.GenericProducer.pojo.Location;
 
 import lombok.NoArgsConstructor;
 
@@ -34,10 +34,9 @@ public class RandomCarDataGenerator {
             carNumber = "default-car-number";
         }
         car.setCarId(carId);
-        car.setCarNumber(carNumber);
+        car.setCarName(carNumberString);
         car.setSpeed(generateRandomSpeed());
-        car.setLatitude(generateRandomLatitude());
-        car.setLongitude(generateRandomLongitude());
+        car.setLocation(new Location(generateRandomLatitude(), generateRandomLongitude()));
         return car;
     }
 

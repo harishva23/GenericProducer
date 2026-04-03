@@ -20,13 +20,16 @@ public class ProducerScheduleService {
     private final ProtobufProducer protobufProducer;
     private final AvroProducer avroProducer;
     private final JSONProducerService jsonProducerService;
+    private final StringProducer stringProducer;
+
     @Scheduled(fixedRate = 10000)
     public void produceCarToBothFormats() {
-        Car car = carDataGenerator.generateRandomCar(); // generate once
+        Car car = carDataGenerator.generateRandomCar();
         @Cleanup
         ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
-        executorService.submit(()->jsonProducerService.produceCarJson(car));
+        //executorService.submit(()->jsonProducerService.produceCarJson(car));
         executorService.submit(()->avroProducer.produceCarAvro(car));
         executorService.submit(()->protobufProducer.produceCarProto(car));
+        executorService.submit(()->stringProducer.produceCarString(car));
     }
 }

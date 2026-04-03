@@ -17,7 +17,7 @@ import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializerConfig;
 public class KafkaProducerClient {
 
     public static final String FALSE = "false";
-    private static final String CLIENT_ID = "car-producer";
+    private static final String CLIENT_ID = "car-nested-producer";
     private static final String SECURITY_PROTOCOL = "SASL_PLAINTEXT";
     private static final String SASL_MECHANISM = "SCRAM-SHA-512";
     private static final String SASL_JAAS_CONFIG = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"%s\" password=\"%s\";";
@@ -43,6 +43,7 @@ public class KafkaProducerClient {
         props.setProperty("basic.auth.user.info", username + ":" + password);
         props.setProperty(AbstractKafkaSchemaSerDeConfig.AUTO_REGISTER_SCHEMAS, FALSE);
         props.setProperty(AbstractKafkaSchemaSerDeConfig.LATEST_COMPATIBILITY_STRICT, "true");
+        props.setProperty(AbstractKafkaSchemaSerDeConfig.USE_LATEST_VERSION, "true");
         props.setProperty(AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY, 
              "io.confluent.kafka.serializers.subject.TopicNameStrategy");
         if(valueSerializer.equals(KafkaSerializerTypes.BYTE_SERIALIZER)){

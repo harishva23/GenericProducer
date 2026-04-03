@@ -1,14 +1,26 @@
 package com.example.GenericProducer.services;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.GenericProducer.KafkaClient.KafkaProducerClient;
+import com.example.GenericProducer.KafkaClient.KarapaceClient;
 import com.example.GenericProducer.enums.KafkaSerializerTypes;
 import com.example.GenericProducer.pojo.Car;
-import com.example.GenericProducer.schema.CarProto;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.util.JsonFormat;
+
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
+import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,10 +30,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProtobufProducer {
 
-    private static final String PROTO_TOPIC = "test-schema-car-protobuf";
-
+    private static final String PROTO_TOPIC = "test-car-nested-protobuf";
+    private static final String PROTO_SUBJECT = "test-car-nested-protobuf-value";
+    private static final String PROTO_LOCATION_SUBJECT = "location.proto";
     private final KafkaProducerClient kafkaProducerClient;
-    private KafkaProducer<String, CarProto.Car> protoProducer;
+    private final KarapaceClient schemaRegistryClient;
+    private KafkaProducer<String, Object> protoProducer;
 
     @Value("${schema.registry.url}")
     private String schemaRegistryUrl;
@@ -31,6 +45,8 @@ public class ProtobufProducer {
 
     @Value("${kafka.password}")
     private String password;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostConstruct
     private void initProtoProducer(){
@@ -43,16 +59,22 @@ public class ProtobufProducer {
 
     public void produceCarProto(Car car) {
         try {
-            // Direct conversion from POJO to Protobuf - NO JSON overhead!
-            CarProto.Car protoCar = CarProto.Car.newBuilder()
-                    .setCarId(car.getCarId())
-                    .setCarNumber(car.getCarNumber())
-                    .setSpeed(car.getSpeed())
-                    .setLatitude(car.getLatitude())
-                    .setLongitude(car.getLongitude())
-                    .build();
+            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(PROTO_SUBJECT);
+            log.info("Schema Metadata: {}",schemaMetadata.getSchema());
+            
+            SchemaReference schemaReference =
+                new SchemaReference(PROTO_LOCATION_SUBJECT, PROTO_LOCATION_SUBJECT,1);
+            Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
+                    .parseSchema("PROTOBUF", schemaMetadata.getSchema(), Arrays.asList(schemaReference));
 
-            ProducerRecord<String, CarProto.Car> producerRecord = 
+            ProtobufSchema protobufSchema = (ProtobufSchema) parsedSchema.get();
+            Descriptors.Descriptor descriptor = protobufSchema.toDescriptor();
+            DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+            
+            String carJson = objectMapper.writeValueAsString(car);
+            JsonFormat.parser().merge(carJson, builder);
+            DynamicMessage protoCar = builder.build();
+            ProducerRecord<String, Object> producerRecord = 
                     new ProducerRecord<>(PROTO_TOPIC, car.getCarId(), protoCar);
                     
             protoProducer.send(producerRecord, (metadata, exception) -> {

@@ -1,6 +1,7 @@
 package com.example.GenericProducer.services;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Optional;
 
 import org.apache.avro.AvroTypeException;
@@ -22,7 +23,9 @@ import com.example.GenericProducer.util.RandomCarDataGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,8 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AvroProducer {
 
-    private static final String AVRO_TOPIC = "test-schema-car-avro";
-    private static final String AVRO_SUBJECT = "test-schema-car-avro-value";
+    private static final String AVRO_TOPIC = "test-car-nested-avro";
+    private static final String AVRO_SUBJECT = "test-car-nested-avro-value";
+    private static final String AVRO_LOCATION_SUBJECT = "test-location-avro";
 
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
@@ -64,20 +68,23 @@ public class AvroProducer {
         try {
             SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(AVRO_SUBJECT);
             log.info("Schema Metadata: {}",schemaMetadata.getSchema());
+            
+            SchemaReference schemaReference =
+                new SchemaReference("com.example.Location", AVRO_LOCATION_SUBJECT,1);
             Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
-                    .parseSchema("AVRO", schemaMetadata.getSchema(), null);
-
+                    .parseSchema("AVRO", schemaMetadata.getSchema(), Arrays.asList(schemaReference));
+            AvroSchema avroSchema = (AvroSchema) parsedSchema.get();
+            Schema rawSchema = avroSchema.rawSchema();
             if (parsedSchema.isEmpty()) {
                 log.error("Failed to parse AVRO schema for subject {}", AVRO_SUBJECT);
                 return;
             }
 
-
             ObjectMapper objectMapper = new ObjectMapper();
             String carString = objectMapper.writeValueAsString(car);
 
             log.info("Car :{}",car);
-            GenericRecord finalValue = convertJsonToGenericRecord(carString, parsedSchema.get());
+            GenericRecord finalValue = convertJsonToGenericRecord(carString, rawSchema);
             if(finalValue!=null){
                 ProducerRecord<String, GenericRecord> producerRecord = new ProducerRecord<>(AVRO_TOPIC, car.getCarId(), finalValue);
                 avroProducer.send(producerRecord, (metadata, exception) -> {
@@ -90,13 +97,12 @@ public class AvroProducer {
                 });
             }
         } catch (Exception e) {
-            log.error("Error producing JSON message", e);
+            log.error("Error producing Avro message", e);
         }
     }
 
-    public static GenericRecord convertJsonToGenericRecord(String jsonPayload, ParsedSchema schema) {
+    public static GenericRecord convertJsonToGenericRecord(String jsonPayload, Schema avroSchema) {
         try {
-            Schema avroSchema = new Schema.Parser().parse(schema.canonicalString());
             GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(avroSchema);
             Decoder decoder = DecoderFactory.get().jsonDecoder(avroSchema, jsonPayload);
             return reader.read(null, decoder);

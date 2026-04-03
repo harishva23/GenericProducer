@@ -7,14 +7,9 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Car {
+public class Location {
 
-    private String carId;
-
-    private String carName;
-
-    private double speed;
-
-    private Location location;
+    private double latitude;
+    private double longitude;
 
 }
