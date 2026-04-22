@@ -85,6 +85,7 @@ public class ProtobufProducer {
                     log.error("Error producing Proto message", exception);
                 }
             });
+            
         } catch (Exception e) {
             log.error("Error producing Proto message", e);
         }

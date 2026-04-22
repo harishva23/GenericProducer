@@ -53,8 +53,8 @@ public class StringProducer {
 
             stringProducer.send(producerRecord, (metadata, exception) -> {
                 if (exception == null) {
-                    log.info("Produced String message topic={} partition={} offset={}",
-                            metadata.topic(), metadata.partition(), metadata.offset());
+                    log.info("Produced String message topic={} partition={} offset={}",metadata.topic(), metadata.partition(), metadata.offset());
+                    
                 } else {
                     log.error("Error producing String message", exception);
                 }
