@@ -8,6 +8,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 resources/application.properties
+bin/
 
 ### STS ###
 .apt_generated
