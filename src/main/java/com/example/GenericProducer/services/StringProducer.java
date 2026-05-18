@@ -1,5 +1,8 @@
 package com.example.GenericProducer.services;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,10 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class StringProducer {
 
-    private static final String STRING_TOPIC = "test-car-nested-string";
-
     private final KafkaProducerClient kafkaProducerClient;
     private KafkaProducer<String, String> stringProducer;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${schema.registry.url}")
     private String schemaRegistryUrl;
@@ -32,6 +34,9 @@ public class StringProducer {
 
     @Value("${kafka.password}")
     private String password;
+
+    @Value("${string.input.topic.name}")
+    private String stringTopic;
 
     @PostConstruct
     private void initStringProducer() {
@@ -44,19 +49,18 @@ public class StringProducer {
 
     public void produceCarString(Car car) {
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
             String carJson = objectMapper.writeValueAsString(car);
+            Map<String, Object> carKeyMap = new HashMap<>();
+            carKeyMap.put("carId", car.getCarId());
+            String carKeyJson = objectMapper.writeValueAsString(carKeyMap);
             log.info("Producing string message: {}", carJson);
 
             ProducerRecord<String, String> producerRecord =
-                    new ProducerRecord<>(STRING_TOPIC, car.getCarId(), carJson);
+                    new ProducerRecord<>(stringTopic, carKeyJson, carJson);
 
             stringProducer.send(producerRecord, (metadata, exception) -> {
-                if (exception == null) {
-                    log.info("Produced String message topic={} partition={} offset={}",metadata.topic(), metadata.partition(), metadata.offset());
-                    
-                } else {
-                    log.error("Error producing String message", exception);
+                if (exception != null) {
+                    log.error("Error producing String message", exception);  
                 }
             });
         } catch (Exception e) {

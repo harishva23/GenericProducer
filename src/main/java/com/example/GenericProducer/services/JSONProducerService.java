@@ -7,14 +7,12 @@ import java.util.Optional;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.example.GenericProducer.KafkaClient.KafkaProducerClient;
 import com.example.GenericProducer.KafkaClient.KarapaceClient;
 import com.example.GenericProducer.enums.KafkaSerializerTypes;
 import com.example.GenericProducer.pojo.Car;
-import com.example.GenericProducer.util.RandomCarDataGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -35,8 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JSONProducerService {
 
-    private static final String JSON_TOPIC = "test-schema-car-json";
-    private static final String JSON_SUBJECT = "test-schema-car-json-value";
+    
 
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
@@ -52,6 +49,9 @@ public class JSONProducerService {
     @Value("${kafka.password}")
     private String password;
 
+    @Value("${json.input.topic.name}")
+    private String jsonTopic;
+
     @PostConstruct
     private void initJSONProducer(){
         jsonProducer =  kafkaProducerClient.getDefaultProducerClientWithoutPartitioner(username
@@ -64,13 +64,13 @@ public class JSONProducerService {
     public void produceCarJson(Car car) {
         
         try {
-            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(JSON_SUBJECT);
+            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(jsonTopic + "-value");
             log.info("Schema Metadata: {}",schemaMetadata.getSchema());
             Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
                     .parseSchema("JSON", schemaMetadata.getSchema(), null);
 
             if (parsedSchema.isEmpty()) {
-                log.error("Failed to parse JSON schema for subject {}", JSON_SUBJECT);
+                log.error("Failed to parse JSON schema for subject {}", jsonTopic + "-value");
                 return;
             }
 
@@ -84,9 +84,9 @@ public class JSONProducerService {
             
 
             KafkaJsonSchemaSerializer<JsonNode> kafkaJsonSchemaSerializer = getJsonNodeKafkaJsonSchemaSerializer();
-            byte[] finalMessage = kafkaJsonSchemaSerializer.serialize(JSON_TOPIC, JsonSchemaUtils.envelope(jsonSchema, jsonNode));
+            byte[] finalMessage = kafkaJsonSchemaSerializer.serialize(jsonTopic, JsonSchemaUtils.envelope(jsonSchema, jsonNode));
             ProducerRecord<String, Object> producerRecord = new ProducerRecord<>(
-                    JSON_TOPIC, car.getCarId(), finalMessage
+                    jsonTopic, car.getCarId(), finalMessage
             );
 
             jsonProducer.send(producerRecord, (metadata, exception) -> {
@@ -117,6 +117,4 @@ public class JSONProducerService {
         kafkaJsonSchemaSerializer.configure(jsonSerializerProps, false);
         return kafkaJsonSchemaSerializer;
     }
-
-    
 }

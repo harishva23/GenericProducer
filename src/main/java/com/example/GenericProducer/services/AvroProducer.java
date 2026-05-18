@@ -36,9 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AvroProducer {
 
-    private static final String AVRO_TOPIC = "test-car-nested-avro";
-    private static final String AVRO_SUBJECT = "test-car-nested-avro-value";
-    private static final String AVRO_LOCATION_SUBJECT = "test-location-avro";
+    @Value("${avro.input.topic.name}")
+    private String avroTopic;
 
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
@@ -54,6 +53,7 @@ public class AvroProducer {
     @Value("${kafka.password}")
     private String password;
 
+
     @PostConstruct
     private void initAvroProducer(){
         avroProducer = kafkaProducerClient.getDefaultProducerClientWithoutPartitioner(
@@ -66,17 +66,17 @@ public class AvroProducer {
     public void produceCarAvro(Car car) throws AvroTypeException {
         
         try {
-            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(AVRO_SUBJECT);
+            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(avroTopic + "-value");
             log.info("Schema Metadata: {}",schemaMetadata.getSchema());
             
             SchemaReference schemaReference =
-                new SchemaReference("com.example.Location", AVRO_LOCATION_SUBJECT,1);
+                new SchemaReference("com.example.Location", "test-location-avro",1);
             Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
                     .parseSchema("AVRO", schemaMetadata.getSchema(), Arrays.asList(schemaReference));
             AvroSchema avroSchema = (AvroSchema) parsedSchema.get();
             Schema rawSchema = avroSchema.rawSchema();
             if (parsedSchema.isEmpty()) {
-                log.error("Failed to parse AVRO schema for subject {}", AVRO_SUBJECT);
+                log.error("Failed to parse AVRO schema for subject {}", avroTopic + "-value");
                 return;
             }
 
@@ -86,7 +86,7 @@ public class AvroProducer {
             log.info("Car :{}",car);
             GenericRecord finalValue = convertJsonToGenericRecord(carString, rawSchema);
             if(finalValue!=null){
-                ProducerRecord<String, GenericRecord> producerRecord = new ProducerRecord<>(AVRO_TOPIC, car.getCarId(), finalValue);
+                ProducerRecord<String, GenericRecord> producerRecord = new ProducerRecord<>(avroTopic, car.getCarId(), finalValue);
                 avroProducer.send(producerRecord, (metadata, exception) -> {
                     if (exception == null) {
                         log.info("Produced Avro message topic={} partition={} offset={}",

@@ -30,8 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProtobufProducer {
 
-    private static final String PROTO_TOPIC = "test-car-nested-protobuf";
-    private static final String PROTO_SUBJECT = "test-car-nested-protobuf-value";
+    
     private static final String PROTO_LOCATION_SUBJECT = "location.proto";
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
@@ -46,6 +45,9 @@ public class ProtobufProducer {
     @Value("${kafka.password}")
     private String password;
 
+    @Value("${protobuf.input.topic.name}")
+    private String protoTopic;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostConstruct
@@ -59,7 +61,7 @@ public class ProtobufProducer {
 
     public void produceCarProto(Car car) {
         try {
-            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(PROTO_SUBJECT);
+            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(protoTopic + "-value");
             log.info("Schema Metadata: {}",schemaMetadata.getSchema());
             
             SchemaReference schemaReference =
@@ -75,7 +77,7 @@ public class ProtobufProducer {
             JsonFormat.parser().merge(carJson, builder);
             DynamicMessage protoCar = builder.build();
             ProducerRecord<String, Object> producerRecord = 
-                    new ProducerRecord<>(PROTO_TOPIC, car.getCarId(), protoCar);
+                    new ProducerRecord<>(protoTopic, car.getCarId(), protoCar);
                     
             protoProducer.send(producerRecord, (metadata, exception) -> {
                 if (exception == null) {
