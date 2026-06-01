@@ -13,8 +13,14 @@ public class Car {
 
     private String carName;
 
+    private String packetNumberString;
+
+    private Integer packetNumber;
+
     private double speed;
 
     private Location location;
+
+    private Boolean isActive;
 
 }

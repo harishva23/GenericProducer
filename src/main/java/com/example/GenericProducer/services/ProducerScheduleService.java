@@ -39,7 +39,7 @@ public class ProducerScheduleService {
     private final JSONProducerService jsonProducerService;
     private final StringProducer stringProducer;
     private final AtomicInteger messageCount = new AtomicInteger(0);  // Add counter
-    private static final Integer MAX_MESSAGES = 1000000;  // Max messages to send
+    private static final Integer MAX_MESSAGES = 10000000;  // Max messages to send
     private final ConfigurableApplicationContext context; 
 
     @Scheduled(fixedRate = 1)

@@ -35,6 +35,7 @@ public class RandomCarDataGenerator {
     private static final List<String> carIdList =new ArrayList<>();
     private static final Map<String, String> carNumberMap = new HashMap<>();
     private static final AtomicInteger carIdCounter = new AtomicInteger(0);
+    private static final AtomicInteger packetNumberCounter = new AtomicInteger(0);
 
     
 
@@ -44,10 +45,10 @@ public class RandomCarDataGenerator {
             carIdList.add("car-" + i);
             carNumberMap.put("car-" + i, "CAR");
         }
-        for(int i=1;i<=numBikeKeys;i++) {
-            carIdList.add("bike-" + i);
-            carNumberMap.put("bike-" + i, "BIKE");
-        }
+        // for(int i=1;i<=numBikeKeys;i++) {
+        //     carIdList.add("bike-" + i);
+        //     carNumberMap.put("bike-" + i, "BIKE");
+        // }
     }
 
     public Car generateRandomCar() {
@@ -64,6 +65,9 @@ public class RandomCarDataGenerator {
         }
         car.setSpeed(generateRandomSpeed());
         car.setLocation(new Location(generateRandomLatitude(), generateRandomLongitude()));
+        car.setPacketNumberString("packet-" + packetNumberCounter.incrementAndGet());
+        car.setPacketNumber(packetNumberCounter.get());
+        car.setIsActive(random.nextBoolean());
         return car;
     }
 
@@ -79,6 +83,6 @@ public class RandomCarDataGenerator {
 
     private static double generateRandomSpeed() {
         // Random speed between 0 and 300 km/h
-        return (random.nextDouble() * 250);
+        return (random.nextDouble() * 50) + 250;
     }
 }
