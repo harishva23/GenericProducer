@@ -1,5 +1,6 @@
 package com.example.GenericProducer.services;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -18,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.schemaregistry.json.JsonSchema;
 import io.confluent.kafka.schemaregistry.json.JsonSchemaUtils;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
@@ -37,8 +39,11 @@ public class JSONProducerService {
 
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
-    
+    private KafkaJsonSchemaSerializer<JsonNode> kafkaJsonSchemaSerializer;
     private KafkaProducer<String, Object> jsonProducer;
+    private SchemaMetadata schemaMetadata;
+    private Optional<ParsedSchema> parsedSchema;
+    private JsonSchema jsonSchema;
 
     @Value("${schema.registry.url}")
     private String schemaRegistryUrl;
@@ -53,37 +58,30 @@ public class JSONProducerService {
     private String jsonTopic;
 
     @PostConstruct
-    private void initJSONProducer(){
+    private void initJSONProducer() throws IOException, RestClientException{
         jsonProducer =  kafkaProducerClient.getDefaultProducerClientWithoutPartitioner(username
             , password,
              schemaRegistryUrl,
               KafkaSerializerTypes.STRING_SERIALIZER, 
               KafkaSerializerTypes.BYTE_SERIALIZER);
+            kafkaJsonSchemaSerializer = getJsonNodeKafkaJsonSchemaSerializer();
+            if(jsonTopic != null && !jsonTopic.isEmpty()) {
+                schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(jsonTopic + "-value");
+                parsedSchema = schemaRegistryClient.getClient()
+                    .parseSchema("JSON", schemaMetadata.getSchema(), null);
+                jsonSchema = (JsonSchema) parsedSchema.get();
+            }
     }
 
     public void produceCarJson(Car car) {
         
         try {
-            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(jsonTopic + "-value");
-            log.info("Schema Metadata: {}",schemaMetadata.getSchema());
-            Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
-                    .parseSchema("JSON", schemaMetadata.getSchema(), null);
-
-            if (parsedSchema.isEmpty()) {
-                log.error("Failed to parse JSON schema for subject {}", jsonTopic + "-value");
-                return;
-            }
-
-            JsonSchema jsonSchema = (JsonSchema) parsedSchema.get();
-            log.info("JsonSchema: {}",jsonSchema);
+            
             ObjectMapper objectMapper = new ObjectMapper();
             String carJson = objectMapper.writeValueAsString(car);
             
             JsonNode jsonNode = objectMapper.readTree(carJson);
-            //jsonSchema.validate(jsonNode);
             
-
-            KafkaJsonSchemaSerializer<JsonNode> kafkaJsonSchemaSerializer = getJsonNodeKafkaJsonSchemaSerializer();
             byte[] finalMessage = kafkaJsonSchemaSerializer.serialize(jsonTopic, JsonSchemaUtils.envelope(jsonSchema, jsonNode));
             ProducerRecord<String, Object> producerRecord = new ProducerRecord<>(
                     jsonTopic, car.getCarId(), finalMessage
@@ -113,7 +111,7 @@ public class JSONProducerService {
         jsonSerializerProps.put(KafkaJsonSchemaSerializerConfig.FAIL_UNKNOWN_PROPERTIES, true);
         jsonSerializerProps.put(AbstractKafkaSchemaSerDeConfig.NORMALIZE_SCHEMAS, true);
 
-        @Cleanup KafkaJsonSchemaSerializer<JsonNode> kafkaJsonSchemaSerializer = new KafkaJsonSchemaSerializer<>();
+        kafkaJsonSchemaSerializer = new KafkaJsonSchemaSerializer<>();
         kafkaJsonSchemaSerializer.configure(jsonSerializerProps, false);
         return kafkaJsonSchemaSerializer;
     }

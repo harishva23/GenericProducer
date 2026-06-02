@@ -25,43 +25,24 @@ public class RandomCarDataGenerator {
     @Value("${num.car.keys}")
     private int numCarKeys;
 
-    @Value("${num.bike.keys}")
-    private int numBikeKeys;
 
     @Value("${sequential.keys.or.random}")
     private String randomSequentialKeys;
 
     private static final Random random = new Random();
-    private static final List<String> carIdList =new ArrayList<>();
-    private static final Map<String, String> carNumberMap = new HashMap<>();
     private static final AtomicInteger carIdCounter = new AtomicInteger(0);
     private static final AtomicInteger packetNumberCounter = new AtomicInteger(0);
 
-    
-
-    @PostConstruct
-    public void initializeCarData() {
-        for(int i=1;i<=numCarKeys;i++) {
-            carIdList.add("car-" + i);
-            carNumberMap.put("car-" + i, "CAR");
-        }
-        // for(int i=1;i<=numBikeKeys;i++) {
-        //     carIdList.add("bike-" + i);
-        //     carNumberMap.put("bike-" + i, "BIKE");
-        // }
-    }
-
     public Car generateRandomCar() {
         Car car = new Car();
-        log.info("randomOrSequentialKeys: {}", randomSequentialKeys);
         if("sequential".equalsIgnoreCase(randomSequentialKeys)) {
             String carId = "car-" + carIdCounter.incrementAndGet();
             car.setCarId(carId);
             car.setCarName("CAR");
         } else {
-            String carId = carIdList.get(random.nextInt(carIdList.size()));
+            String carId = "car-" + random.nextInt(numCarKeys);
             car.setCarId(carId);
-            car.setCarName(carNumberMap.get(carId));
+            car.setCarName(carId);
         }
         car.setSpeed(generateRandomSpeed());
         car.setLocation(new Location(generateRandomLatitude(), generateRandomLongitude()));
@@ -83,6 +64,6 @@ public class RandomCarDataGenerator {
 
     private static double generateRandomSpeed() {
         // Random speed between 0 and 300 km/h
-        return (random.nextDouble() * 50) + 250;
+        return (random.nextDouble() * 300);
     }
 }

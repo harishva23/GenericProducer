@@ -1,6 +1,7 @@
 package com.example.GenericProducer.KafkaClient;
 
 import java.util.Properties;
+import java.util.UUID;
 
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -29,10 +30,11 @@ public class KafkaProducerClient {
     }
     public <K, V> KafkaProducer<K, V> getDefaultProducerClientWithoutPartitioner(String username, String password, @Value("${schema.registry.url}") String schemaRegistryUrl, KafkaSerializerTypes keySerializer, KafkaSerializerTypes valueSerializer) {
         Properties props = new Properties();
+        String randomClientId = UUID.randomUUID().toString();
         props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializer.getClassName());
         props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer.getClassName());
         props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServerUrl);
-        props.setProperty(ProducerConfig.CLIENT_ID_CONFIG, CLIENT_ID);
+        props.setProperty(ProducerConfig.CLIENT_ID_CONFIG, CLIENT_ID + "-" + randomClientId);
         props.setProperty(ProducerConfig.RETRIES_CONFIG, "0");
         props.setProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "3000");
         props.setProperty(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, SECURITY_PROTOCOL);

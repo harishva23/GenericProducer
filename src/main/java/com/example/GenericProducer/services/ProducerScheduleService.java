@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.example.GenericProducer.pojo.Car;
 import com.example.GenericProducer.util.RandomCarDataGenerator;
 
+import jakarta.annotation.PreDestroy;
 import lombok.Cleanup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,8 +40,9 @@ public class ProducerScheduleService {
     private final JSONProducerService jsonProducerService;
     private final StringProducer stringProducer;
     private final AtomicInteger messageCount = new AtomicInteger(0);  // Add counter
-    private static final Integer MAX_MESSAGES = 10000000;  // Max messages to send
+    private static final Integer MAX_MESSAGES = 10000000; // Max messages to send
     private final ConfigurableApplicationContext context; 
+    private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     @Scheduled(fixedRate = 1)
     public void produceCarToBothFormats() {
@@ -51,8 +53,7 @@ public class ProducerScheduleService {
         }
         
         Car car = carDataGenerator.generateRandomCar();
-        @Cleanup
-        ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+        
         if(stringTopic != null && !stringTopic.isEmpty()) {
             executorService.submit(() -> stringProducer.produceCarString(car));
         }
@@ -68,5 +69,10 @@ public class ProducerScheduleService {
 
         int count = messageCount.incrementAndGet();
         log.info("Sent message {} of {}", count, MAX_MESSAGES);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        executorService.shutdown();
     }
 }

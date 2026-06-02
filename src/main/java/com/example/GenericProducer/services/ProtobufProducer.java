@@ -1,5 +1,6 @@
 package com.example.GenericProducer.services;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -20,6 +21,7 @@ import com.google.protobuf.util.JsonFormat;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -30,11 +32,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProtobufProducer {
 
-    
-    private static final String PROTO_LOCATION_SUBJECT = "location.proto";
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
     private KafkaProducer<String, Object> protoProducer;
+    private SchemaMetadata schemaMetadata;
+    private Optional<ParsedSchema> parsedSchema;
+    private ProtobufSchema protobufSchema;
 
     @Value("${schema.registry.url}")
     private String schemaRegistryUrl;
@@ -51,25 +54,25 @@ public class ProtobufProducer {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostConstruct
-    private void initProtoProducer(){
+    private void initProtoProducer() throws IOException, RestClientException{
         protoProducer = kafkaProducerClient.getDefaultProducerClientWithoutPartitioner(
                 username, password, schemaRegistryUrl,
                 KafkaSerializerTypes.STRING_SERIALIZER,
                 KafkaSerializerTypes.PROTOBUF_SERIALIZER
         );
+        if(protoTopic != null && !protoTopic.isEmpty()) {
+            schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(protoTopic + "-value");
+            parsedSchema = schemaRegistryClient.getClient()
+                    .parseSchema("PROTOBUF", schemaMetadata.getSchema(), null);
+            protobufSchema = (ProtobufSchema) parsedSchema.get();
+
+        }
+
     }
 
     public void produceCarProto(Car car) {
         try {
-            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(protoTopic + "-value");
-            log.info("Schema Metadata: {}",schemaMetadata.getSchema());
             
-            SchemaReference schemaReference =
-                new SchemaReference(PROTO_LOCATION_SUBJECT, PROTO_LOCATION_SUBJECT,1);
-            Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
-                    .parseSchema("PROTOBUF", schemaMetadata.getSchema(), Arrays.asList(schemaReference));
-
-            ProtobufSchema protobufSchema = (ProtobufSchema) parsedSchema.get();
             Descriptors.Descriptor descriptor = protobufSchema.toDescriptor();
             DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
             

@@ -1,7 +1,6 @@
 package com.example.GenericProducer.services;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Optional;
 
 import org.apache.avro.AvroTypeException;
@@ -19,13 +18,12 @@ import com.example.GenericProducer.KafkaClient.KafkaProducerClient;
 import com.example.GenericProducer.KafkaClient.KarapaceClient;
 import com.example.GenericProducer.enums.KafkaSerializerTypes;
 import com.example.GenericProducer.pojo.Car;
-import com.example.GenericProducer.util.RandomCarDataGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
-import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,8 +39,12 @@ public class AvroProducer {
 
     private final KafkaProducerClient kafkaProducerClient;
     private final KarapaceClient schemaRegistryClient;
-    private final RandomCarDataGenerator carDataGenerator;
     private KafkaProducer<String, GenericRecord> avroProducer;
+    private SchemaMetadata schemaMetadata;
+    private ObjectMapper objectMapper;
+    private Optional<ParsedSchema> parsedSchema;
+    private AvroSchema avroSchema;
+    private Schema rawSchema;
 
     @Value("${schema.registry.url}")
     private String schemaRegistryUrl;
@@ -55,32 +57,26 @@ public class AvroProducer {
 
 
     @PostConstruct
-    private void initAvroProducer(){
+    private void initAvroProducer() throws IOException, RestClientException{
         avroProducer = kafkaProducerClient.getDefaultProducerClientWithoutPartitioner(
                 username, password, schemaRegistryUrl,
                 KafkaSerializerTypes.STRING_SERIALIZER,
                 KafkaSerializerTypes.AVRO_SERIALIZER
         );
+        objectMapper = new ObjectMapper();
+        if(avroTopic != null && !avroTopic.isEmpty()) {
+            schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(avroTopic + "-value");
+            parsedSchema = schemaRegistryClient.getClient()
+                    .parseSchema("AVRO", schemaMetadata.getSchema(), null);
+            avroSchema = (AvroSchema) parsedSchema.get();
+            rawSchema = avroSchema.rawSchema();
+        }
     }
 
     public void produceCarAvro(Car car) throws AvroTypeException {
         
         try {
-            SchemaMetadata schemaMetadata = schemaRegistryClient.getClient().getLatestSchemaMetadata(avroTopic + "-value");
-            log.info("Schema Metadata: {}",schemaMetadata.getSchema());
             
-            SchemaReference schemaReference =
-                new SchemaReference("com.example.Location", "test-location-avro",1);
-            Optional<ParsedSchema> parsedSchema = schemaRegistryClient.getClient()
-                    .parseSchema("AVRO", schemaMetadata.getSchema(), Arrays.asList(schemaReference));
-            AvroSchema avroSchema = (AvroSchema) parsedSchema.get();
-            Schema rawSchema = avroSchema.rawSchema();
-            if (parsedSchema.isEmpty()) {
-                log.error("Failed to parse AVRO schema for subject {}", avroTopic + "-value");
-                return;
-            }
-
-            ObjectMapper objectMapper = new ObjectMapper();
             String carString = objectMapper.writeValueAsString(car);
 
             log.info("Car :{}",car);
